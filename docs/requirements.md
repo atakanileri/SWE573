@@ -1,7 +1,5 @@
 # Requirements — Indigenous Crafts & Arts Website
 
-SWE 573 Software Development Practice, Boğaziçi University (solo project)
-
 ## 1. Introduction
 
 This project is a website where people share and browse indigenous crafts and arts. Each craft post carries its own details: tags, categories, dimensions, colors, tools, a backstory, a location, and any extra text the author wants to add.
@@ -41,6 +39,7 @@ Users need an account to see content on the site. This was decided in `stakehold
 | FR-08 | Posters can preview a post before publishing it. | Should |
 | FR-09 | Posters can see a list of their own posts and drafts. | Should |
 | FR-10 | Posters can edit or delete their own posts. | Should |
+| FR-23 | Posters must add at least one photo of the craft before publishing. | Must |
 
 ### Drafts
 
@@ -101,7 +100,6 @@ Users need an account to see content on the site. This was decided in `stakehold
 
 - Every registered user is both a Viewer and a Poster. Admin accounts are set up separately.
 - "Administrate posts" means hiding, restoring, editing and deleting posts.
-- A craft post will probably need at least one photo, although the stakeholder notes don't say this.
 
 ## 6. Open questions
 
