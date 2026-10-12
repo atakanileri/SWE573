@@ -1,4 +1,4 @@
-# User Stories — Indigenous Crafts
+# User Stories — Indigenous Crafts & Arts Website
 
 These stories describe the main ways Viewers, Posters and Admins use the site. They are based on `requirements.md`.
 
@@ -46,10 +46,11 @@ As a Poster, I want to share a craft with all its details, so that others can le
 
 - I can start a new post with the "New Craft" button.
 - I fill in the title, description, tags, categories, dimensions, colors, tools, backstory and location. Custom text is optional.
+- I upload at least one photo of the craft.
 - I can preview the post before publishing it.
 - I can't publish without a location. Once published, other logged-in users can see the post.
 
-Related: FR-05, FR-06, FR-07, FR-08, FR-16
+Related: FR-05, FR-06, FR-07, FR-08, FR-16, FR-23
 
 ## US-06 — Save a craft as a draft
 
