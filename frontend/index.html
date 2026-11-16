@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Indigenous Crafts &amp; Arts</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header id="hdr">
+    <div class="logo" id="logo">Indigenous Crafts &amp; Arts</div>
+    <nav>
+      <button type="button" class="counter" id="counterBtn" title="Calls POST /api/counter">
+        API counter: <span id="counterVal">…</span>
+      </button>
+      <button type="button" class="navlink cur" id="nBrowse">Browse</button>
+      <button type="button" class="navlink" id="nMine">My Posts</button>
+      <button type="button" class="navlink btn" id="nNew">+ New Craft</button>
+      <span class="um">
+        <button type="button" class="linkish" id="userBtn">Account ▾</button>
+        <div class="menu" id="menu">
+          <button type="button" id="mMine">My posts</button>
+          <button type="button" id="mDrafts">My drafts <span class="cnt" id="dcnt"></span></button>
+          <button type="button" id="mFavs">Favorites</button>
+          <button type="button" id="mLogout">Log out</button>
+        </div>
+      </span>
+    </nav>
+  </header>
+
+  <section id="vHome">
+    <div class="top" id="filters">
+      <form class="search" id="searchForm">
+        <label class="sr" for="q">Search</label>
+        <input id="q" placeholder="Search crafts, makers, places, tags…">
+        <button type="submit">Search</button>
+      </form>
+      <div class="chips" id="chips"></div>
+    </div>
+    <h2 class="sec hide" id="secTitle"></h2>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="vForm" class="hide">
+    <main class="form">
+      <h1 id="formHeading">New Craft Post</h1>
+      <p class="sub">Fields marked <span class="req">*</span> are required to publish. Drafts are only visible to you. The photo is a link in this prototype, not an upload.</p>
+      <div id="formErrors" class="form-errors hide"></div>
+
+      <div class="f" id="fTitle">
+        <label for="iTitle">Title <span class="req">*</span></label>
+        <input id="iTitle" maxlength="140" placeholder="Hand-woven kilim with eli belinde motif">
+        <div class="errmsg">Title is required.</div>
+      </div>
+      <div class="f" id="fDesc">
+        <label for="iDesc">Description <span class="req">*</span></label>
+        <textarea id="iDesc" placeholder="Flat-woven wool kilim made on a vertical loom."></textarea>
+        <div class="errmsg">Description is required.</div>
+      </div>
+      <div class="f" id="fPhotos">
+        <label for="iPhoto">Photo URL <span class="opt">(optional — a placeholder is shown if you leave this empty)</span></label>
+        <input id="iPhoto" placeholder="https://…" inputmode="url">
+        <div class="errmsg">Image URL should start with http:// or https://.</div>
+      </div>
+
+      <div class="row">
+        <div class="f" id="fCat">
+          <label>Category <span class="req">*</span></label>
+          <div class="sel" id="catSel"></div>
+          <div class="errmsg">Pick a category.</div>
+        </div>
+        <div class="f" id="fTags">
+          <label>Tags <span class="req">*</span></label>
+          <div class="sel" id="tagSel"></div>
+          <div class="hint">These are the official tags. Proposing a new one isn't in this prototype.</div>
+          <div class="errmsg">Pick at least one tag.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="f" id="fDim">
+          <label for="iDim">Dimensions <span class="req">*</span></label>
+          <input id="iDim" placeholder="120 cm × 180 cm">
+          <div class="errmsg">Dimensions are required.</div>
+        </div>
+        <div class="f" id="fCol">
+          <label for="iCol">Colors <span class="req">*</span></label>
+          <input id="iCol" placeholder="Madder red, indigo, natural">
+          <div class="errmsg">Colors are required.</div>
+        </div>
+      </div>
+
+      <div class="f" id="fTools">
+        <label for="iTools">Tools <span class="req">*</span></label>
+        <input id="iTools" placeholder="Vertical loom, wooden beater comb">
+        <div class="errmsg">Tools are required.</div>
+      </div>
+      <div class="f" id="fBack">
+        <label for="iBack">Backstory <span class="req">*</span></label>
+        <textarea id="iBack" placeholder="How this craft is made, and who it comes from."></textarea>
+        <div class="errmsg">Backstory is required.</div>
+      </div>
+      <div class="f" id="fLoc">
+        <label for="iLoc">Location <span class="req">*</span></label>
+        <input id="iLoc" placeholder="Toros, Mersin">
+        <div class="mini map-pick" id="fMap">
+          <div class="mpin ghost" id="fPin"></div>
+          <div class="mlbl" id="fLocLbl">Click the map to place a sample pin (Toros, Mersin)</div>
+        </div>
+        <div class="row latlng">
+          <div class="f">
+            <label for="iLat">Latitude <span class="opt">(optional)</span></label>
+            <input id="iLat" inputmode="decimal" placeholder="36.8">
+          </div>
+          <div class="f">
+            <label for="iLng">Longitude <span class="opt">(optional)</span></label>
+            <input id="iLng" inputmode="decimal" placeholder="34.0">
+          </div>
+        </div>
+        <div class="errmsg">Location is required. Please set a place before publishing.</div>
+      </div>
+      <div class="f">
+        <label for="iCustom">Custom text <span class="opt">(optional)</span></label>
+        <textarea id="iCustom" style="min-height:60px" placeholder="Anything else you want readers to know."></textarea>
+      </div>
+
+      <div class="actions">
+        <span class="hint" id="draftNote">Not saved yet</span>
+        <div>
+          <button type="button" class="b" id="saveDraft">Save as Draft</button>
+          <button type="button" class="b" id="previewBtn">Preview</button>
+          <button type="button" class="b pri" id="publishBtn">Publish</button>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <section id="vLanding" class="hide">
+    <div class="landing">
+      <h2>Indigenous Crafts &amp; Arts</h2>
+      <p>A community for sharing and learning about indigenous crafts from around the world. Please log in or register to see the crafts.</p>
+
+      <form id="loginForm">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" autocomplete="username" value="atakan@example.com" required>
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" value="password" required>
+        <button class="b pri" type="submit">Log in</button>
+      </form>
+
+      <form id="registerForm" class="hide">
+        <label for="regName">Name</label>
+        <input id="regName" autocomplete="nickname" required>
+        <label for="regEmail">Email</label>
+        <input id="regEmail" type="email" autocomplete="username" required>
+        <label for="regPassword">Password</label>
+        <input id="regPassword" type="password" autocomplete="new-password" minlength="6" required>
+        <button class="b pri" type="submit">Create account</button>
+      </form>
+
+      <p id="landingError" class="banner-err hide"></p>
+      <div class="hint" id="authSwitch">
+        <button type="button" class="link" id="showRegister">Register</button>
+        <span aria-hidden="true"> · </span>
+        <span>Forgot password? Not in this prototype.</span>
+      </div>
+      <p class="hint">Demo account: atakan@example.com / password. Email verification is skipped for now, so this login works straight away.</p>
+      <button type="button" class="counter" id="landingCounter" title="Calls POST /api/counter">
+        API counter: <span id="landingCounterVal">…</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="ov" id="ovDet">
+    <div class="modal" id="det"></div>
+  </div>
+
+  <div class="ov" id="ovRep">
+    <div class="modal small">
+      <button type="button" class="x" id="closeRep" aria-label="Close">×</button>
+      <h3>Report this post</h3>
+      <label class="sr" for="repReason">Reason</label>
+      <select id="repReason">
+        <option>Wrong or misleading information</option>
+        <option>Not an indigenous craft</option>
+        <option>Offensive or disrespectful content</option>
+        <option>Copyright / not the poster's work</option>
+        <option>Other</option>
+      </select>
+      <label class="sr" for="repText">What is wrong</label>
+      <textarea id="repText" rows="3" placeholder="Tell us what is wrong with this post…"></textarea>
+      <button type="button" class="b pri" id="submitRep">Submit</button>
+      <button type="button" class="b" id="cancelRep">Cancel</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
