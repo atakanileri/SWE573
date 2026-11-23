@@ -22,6 +22,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
+from app.models import Admin
 from app.models import Session as SessionRow
 from app.models import User, utcnow
 
@@ -66,6 +67,11 @@ def create_session(db: DbSession, user: User) -> str:
     db.add(row)
     db.commit()
     return token
+
+
+def is_admin(db: DbSession, user: User) -> bool:
+    """True when this user has a row in the admins table."""
+    return db.query(Admin.id).filter(Admin.user_id == user.id).first() is not None
 
 
 def get_current_user(

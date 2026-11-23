@@ -23,6 +23,9 @@ class UserOut(BaseModel):
     id: int
     email: str
     display_name: str
+    # The page uses this to show Approve and Reject. It is not a secret:
+    # the demo account is the admin, and a registered account is not.
+    is_admin: bool = False
 
 
 class TokenOut(BaseModel):
@@ -144,4 +147,21 @@ class ReportOut(BaseModel):
     craft_id: int
     reason: str
     details: str
+    created_at: datetime
+
+
+class ProposalIn(BaseModel):
+    kind: Literal["category", "tag"]
+    name: str = Field(min_length=1, max_length=80)
+
+
+class ProposalOut(BaseModel):
+    id: int
+    kind: str
+    name: str
+    status: str
+    # Display name of the person who proposed it. Empty for the starter list.
+    # The email is not included.
+    proposed_by: str | None = None
+    mine: bool
     created_at: datetime

@@ -321,6 +321,7 @@ main.form h1 { margin: 0 0 4px; font-size: 22px; }
 }
 .f textarea { min-height: 80px; }
 .f.err input, .f.err textarea, .f.err .mini { border-color: #c0582b; }
+.f.err .propose input { border-color: #aaa; }
 .errmsg { display: none; color: #c0582b; font-size: 13px; margin-top: 6px; }
 .f.err .errmsg { display: block; }
 .form-errors {
@@ -339,6 +340,21 @@ main.form h1 { margin: 0 0 4px; font-size: 22px; }
 }
 .sel .chip { margin: 2px 4px 2px 0; padding: 3px 10px; }
 .hint { font-size: 12px; color: #888; margin-top: 5px; }
+.propose { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.propose input { flex: 1; width: auto; min-width: 0; }
+.propose .b { flex: none; margin-right: 0; }
+.proposal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.proposal .status { color: #777; font-size: 13px; }
 .latlng { margin-top: 8px; }
 .latlng .f { margin-bottom: 0; }
 .actions {

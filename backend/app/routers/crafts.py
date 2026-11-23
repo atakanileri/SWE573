@@ -15,10 +15,10 @@ from sqlalchemy import Text, cast, or_
 from sqlalchemy.orm import Session as DbSession
 
 from app.auth import get_current_user
-from app.constants import CATEGORIES, TAGS
 from app.database import get_db
 from app.models import Craft, Favorite, Report, User
 from app.schemas import CraftIn, CraftOut, FavoriteOut, ReportIn, ReportOut
+from app.vocabulary import KIND_CATEGORY, KIND_TAG, official_names
 
 router = APIRouter(prefix="/api", tags=["crafts"])
 
@@ -53,15 +53,21 @@ def to_out(craft: Craft, favorited: bool, owner: bool) -> CraftOut:
     )
 
 
-def check_rules(body: CraftIn) -> None:
-    """Server-side checks. The form checks too, but the API is the real gate."""
+def check_rules(body: CraftIn, db: DbSession) -> None:
+    """Server-side checks. The form checks too, but the API is the real gate.
+
+    A pending or rejected name is not official, so it cannot be saved on a
+    post. The person proposes it first, and an admin approves it.
+    """
     errors: list[str] = []
+    categories = official_names(db, KIND_CATEGORY)
+    tags = official_names(db, KIND_TAG)
     if not body.title:
         errors.append("Title is required.")
-    if body.category and body.category not in CATEGORIES:
+    if body.category and body.category not in categories:
         errors.append(f"'{body.category}' is not an official category.")
     for tag in body.tags:
-        if tag not in TAGS:
+        if tag not in tags:
             errors.append(f"'{tag}' is not an official tag.")
     if body.status == "published":
         if not body.description:
@@ -130,13 +136,21 @@ def visible_craft(db: DbSession, craft_id: int, user: User) -> Craft:
 
 
 @router.get("/categories", response_model=list[str])
-def categories(_user: Annotated[User, Depends(get_current_user)]) -> list[str]:
-    return list(CATEGORIES)
+def categories(
+    _user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[DbSession, Depends(get_db)],
+) -> list[str]:
+    """Official categories. Pending proposals are not included."""
+    return official_names(db, KIND_CATEGORY)
 
 
 @router.get("/tags", response_model=list[str])
-def tags(_user: Annotated[User, Depends(get_current_user)]) -> list[str]:
-    return list(TAGS)
+def tags(
+    _user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[DbSession, Depends(get_db)],
+) -> list[str]:
+    """Official tags. Pending proposals are not included."""
+    return official_names(db, KIND_TAG)
 
 
 @router.get("/crafts", response_model=list[CraftOut])
@@ -184,12 +198,12 @@ def list_crafts(
         query = query.filter(Craft.status == "published")
 
     if category:
-        if category not in CATEGORIES:
+        if category not in official_names(db, KIND_CATEGORY):
             raise HTTPException(status_code=400, detail="Unknown category.")
         query = query.filter(Craft.category == category)
     if tag:
         tag = tag.strip().lower().lstrip("#")
-        if tag not in TAGS:
+        if tag not in official_names(db, KIND_TAG):
             raise HTTPException(status_code=400, detail="Unknown tag.")
         # Text, not String. Postgres rejects CAST(json AS VARCHAR).
         # SQLite accepts CAST(... AS TEXT), which is what this compiles to.
@@ -236,7 +250,7 @@ def create_craft(
     `status=published` (the default) checks the required fields, including
     a location. A new draft is visible only to the author.
     """
-    check_rules(body)
+    check_rules(body, db)
     craft = Craft(author_id=user.id, card_height=240)
     apply_fields(craft, body)
     db.add(craft)
@@ -265,7 +279,7 @@ def update_craft(
     if craft.author_id != user.id:
         raise HTTPException(status_code=403, detail="You can only change your own posts.")
     # Check before writing. A rejected publish must leave the draft as it was.
-    check_rules(body)
+    check_rules(body, db)
     apply_fields(craft, body)
     db.commit()
     db.refresh(craft)

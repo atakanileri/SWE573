@@ -22,7 +22,7 @@ from datetime import timedelta
 from sqlalchemy.orm import Session as DbSession
 
 from app.auth import hash_password
-from app.models import Craft, User, utcnow
+from app.models import Admin, Craft, User, utcnow
 
 # Public class login. Tests and the README use these when the env vars are unset.
 DEFAULT_DEMO_EMAIL = "atakan@example.com"
@@ -398,3 +398,22 @@ def seed(db: DbSession) -> bool:
 
     db.commit()
     return True
+
+
+def ensure_demo_admin(db: DbSession) -> None:
+    """The demo account is the admin.
+
+    seed() does nothing once any user exists, and the deployed database
+    already has users. This still runs on every startup. Admin is its own
+    table because create_all will create a missing table, and it will not
+    add a column to users.
+    """
+    email = demo_email()
+    user = db.query(User).filter(User.email == email).one_or_none()
+    if user is None:
+        return
+    already = db.query(Admin.id).filter(Admin.user_id == user.id).first()
+    if already is not None:
+        return
+    db.add(Admin(user_id=user.id))
+    db.commit()

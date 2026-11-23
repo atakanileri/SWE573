@@ -117,6 +117,7 @@ function saveSession(data) {
 function show(which) {
   $("vHome").className = which === "home" ? "" : "hide";
   $("vForm").className = which === "form" ? "" : "hide";
+  $("vProposals").className = which === "proposals" ? "" : "hide";
   $("vLanding").className = which === "landing" ? "" : "hide";
   $("hdr").className = which === "landing" ? "hide" : "";
   window.scrollTo(0, 0);
@@ -438,7 +439,8 @@ function setField(id, value) {
 }
 
 async function openForm(craft) {
-  if (!categories.length) await loadMeta();
+  // Ask again so a name an admin just approved is on the picker.
+  await loadMeta();
   document.querySelectorAll("#vForm .f").forEach(function (field) { field.classList.remove("err"); });
   $("formErrors").className = "form-errors hide";
   $("formErrors").textContent = "";
@@ -471,6 +473,16 @@ async function openForm(craft) {
     $("draftNote").textContent = "Not saved yet";
     placePin(false);
   }
+  $("proposeCat").value = "";
+  $("proposeTag").value = "";
+  const admin = me && me.is_admin;
+  const hint = admin
+    ? "You are an admin, so this name is added to the official list immediately."
+    : "A new name stays pending until an admin approves it. It cannot be picked before that.";
+  $("catProposeHint").textContent = hint;
+  $("tagProposeHint").textContent = hint;
+  $("proposeCatBtn").textContent = admin ? "Add" : "Propose";
+  $("proposeTagBtn").textContent = admin ? "Add" : "Propose";
   renderSelectors();
   show("form");
   setNav(false);
@@ -638,10 +650,13 @@ $("nNew").addEventListener("click", function () { openForm(null); });
 $("mMine").addEventListener("click", function () { $("menu").classList.remove("open"); go("mine"); });
 $("mDrafts").addEventListener("click", function () { $("menu").classList.remove("open"); go("drafts"); });
 $("mFavs").addEventListener("click", function () { $("menu").classList.remove("open"); go("favs"); });
+$("mProposals").addEventListener("click", function () { openProposals(); });
 $("mLogout").addEventListener("click", async function () {
   $("menu").classList.remove("open");
   await api("POST", "/api/auth/logout");
   clearSession();
+  // Register hides the login form. Logging out should bring that form back.
+  setAuthMode(false);
   showLanding();
 });
 $("userBtn").addEventListener("click", function (event) {
@@ -727,6 +742,110 @@ $("fMap").addEventListener("click", function () {
 $("iLoc").addEventListener("input", function () {
   placePin(!!$("iLoc").value.trim());
   $("fLoc").classList.remove("err");
+});
+
+function statusLabel(status) {
+  if (status === "official") return "Approved";
+  if (status === "rejected") return "Rejected";
+  return "Pending";
+}
+
+async function propose(kind) {
+  const input = $(kind === "tag" ? "proposeTag" : "proposeCat");
+  const name = input.value.trim();
+  if (!name) {
+    toast(kind === "tag" ? "Type a tag first." : "Type a category first.");
+    return;
+  }
+  const res = await api("POST", "/api/proposals", { kind: kind, name: name });
+  if (!res.ok) {
+    if (!res.loggedOut) toast(errorText(res.data));
+    return;
+  }
+  input.value = "";
+  if (res.data.status === "official") {
+    await loadMeta();
+    if (kind === "category") selectedCategory = res.data.name;
+    else if (selectedTags.indexOf(res.data.name) < 0) selectedTags.push(res.data.name);
+    renderSelectors();
+    renderChips();
+    toast(res.data.name + " is on the official list.");
+    return;
+  }
+  toast(res.data.name + " is pending until an admin approves it.");
+}
+
+async function openProposals() {
+  $("menu").classList.remove("open");
+  const admin = me && me.is_admin;
+  const path = admin ? "/api/proposals?status=pending" : "/api/proposals";
+  const res = await api("GET", path);
+  if (!res.ok) {
+    if (!res.loggedOut) toast(errorText(res.data));
+    return;
+  }
+  $("proposalHeading").textContent = admin ? "Tag and category proposals" : "My proposals";
+  $("proposalSub").textContent = admin
+    ? "Approve a proposal to put it on the official list. Reject it to leave it off. An official name stays, because posts already use that text."
+    : "A proposal stays pending until an admin approves it. Until then it cannot be picked on a post.";
+  const rows = res.data || [];
+  const empty = $("proposalEmpty");
+  if (!rows.length) {
+    $("proposalList").innerHTML = "";
+    empty.textContent = admin
+      ? "Nothing is waiting for review."
+      : "You have not proposed a tag or category yet.";
+    empty.classList.remove("hide");
+  } else {
+    empty.classList.add("hide");
+    $("proposalList").innerHTML = rows
+      .map(function (row) {
+        const kind = row.kind === "tag" ? "Tag" : "Category";
+        const who = row.proposed_by ? " · " + esc(row.proposed_by) : "";
+        let actions = '<span class="status">' + esc(statusLabel(row.status)) + "</span>";
+        if (admin && row.status === "pending") {
+          actions =
+            "<span>" +
+            '<button type="button" class="b pri" data-approve="' + row.id + '">Approve</button>' +
+            '<button type="button" class="b" data-reject="' + row.id + '">Reject</button>' +
+            "</span>";
+        }
+        return (
+          '<div class="proposal"><div><strong>' + esc(kind) + ":</strong> " + esc(row.name) + who + "</div>" +
+          actions + "</div>"
+        );
+      })
+      .join("");
+  }
+  show("proposals");
+  setNav(false);
+}
+
+async function decide(id, action) {
+  const res = await api("POST", "/api/proposals/" + id + "/" + action);
+  if (!res.ok) {
+    if (!res.loggedOut) toast(errorText(res.data));
+    return;
+  }
+  await loadMeta();
+  renderChips();
+  toast(action === "approve" ? "Approved. It can be picked on a post now." : "Rejected. It stays off the list.");
+  openProposals();
+}
+
+$("proposeCatBtn").addEventListener("click", function () { propose("category"); });
+$("proposeTagBtn").addEventListener("click", function () { propose("tag"); });
+$("proposeCat").addEventListener("keydown", function (event) {
+  if (event.key === "Enter") { event.preventDefault(); propose("category"); }
+});
+$("proposeTag").addEventListener("keydown", function (event) {
+  if (event.key === "Enter") { event.preventDefault(); propose("tag"); }
+});
+$("proposalList").addEventListener("click", function (event) {
+  const approve = event.target.closest("[data-approve]");
+  if (approve) { decide(approve.getAttribute("data-approve"), "approve"); return; }
+  const reject = event.target.closest("[data-reject]");
+  if (reject) decide(reject.getAttribute("data-reject"), "reject");
 });
 
 $("saveDraft").addEventListener("click", function () { save("draft"); });

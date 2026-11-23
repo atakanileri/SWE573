@@ -9,6 +9,7 @@ from app.auth import (
     create_session,
     get_current_user,
     hash_password,
+    is_admin,
     verify_password,
 )
 from app.database import get_db
@@ -24,8 +25,13 @@ REGISTER_NOTE = (
 )
 
 
-def _user_out(user: User) -> UserOut:
-    return UserOut(id=user.id, email=user.email, display_name=user.display_name)
+def _user_out(user: User, db: DbSession) -> UserOut:
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        is_admin=is_admin(db, user),
+    )
 
 
 @router.post("/register", response_model=TokenOut, status_code=201)
@@ -45,7 +51,7 @@ def register(body: RegisterIn, db: Annotated[DbSession, Depends(get_db)]) -> Tok
     db.commit()
     db.refresh(user)
     token = create_session(db, user)
-    return TokenOut(token=token, user=_user_out(user), note=REGISTER_NOTE)
+    return TokenOut(token=token, user=_user_out(user, db), note=REGISTER_NOTE)
 
 
 @router.post("/login", response_model=TokenOut)
@@ -59,14 +65,17 @@ def login(body: LoginIn, db: Annotated[DbSession, Depends(get_db)]) -> TokenOut:
             status_code=403, detail="Please verify your email before logging in."
         )
     token = create_session(db, user)
-    return TokenOut(token=token, user=_user_out(user))
+    return TokenOut(token=token, user=_user_out(user, db))
 
 
 @router.get("/me", response_model=UserOut)
-def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
+def me(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[DbSession, Depends(get_db)],
+) -> UserOut:
     # Email is included here because this is the logged-in person's own account.
     # Craft responses never include it.
-    return _user_out(user)
+    return _user_out(user, db)
 
 
 @router.post("/logout", status_code=204)

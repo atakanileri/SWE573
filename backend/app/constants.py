@@ -1,8 +1,8 @@
-"""Official lists the prototype lets people pick from.
+"""Starter categories and tags.
 
-The requirements say tags and categories should come from a list an admin
-controls. There is no admin screen yet, so the lists live here. Adding a new
-one means editing this file and restarting.
+Startup copies any missing name into the vocabulary table. Approving a
+proposal does not edit this file. These are the names the sample crafts
+were written with.
 """
 
 CATEGORIES = [

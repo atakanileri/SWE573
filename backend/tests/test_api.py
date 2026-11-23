@@ -78,6 +78,9 @@ def test_docs_list_the_routes(client):
         "/api/crafts/{craft_id}/favorite",
         "/api/crafts/{craft_id}/reports",
         "/api/reports",
+        "/api/proposals",
+        "/api/proposals/{proposal_id}/approve",
+        "/api/proposals/{proposal_id}/reject",
     ]
     for path in expected:
         assert path in paths, path
