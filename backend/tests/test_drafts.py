@@ -41,14 +41,25 @@ def ids(response):
     return [craft["id"] for craft in response.json()]
 
 
-def test_a_draft_only_needs_a_title():
-    # No database. This is the rule the form is copying.
-    check_rules(CraftIn(title="Half-finished bowl", status="draft"))
+def _rules(body):
+    # The official-name check reads the vocabulary table, so this needs the
+    # app's database. An empty category or tag list does not look any name up.
+    import app.database as database
+
+    db = database.SessionLocal()
+    try:
+        return check_rules(body, db)
+    finally:
+        db.close()
 
 
-def test_publishing_checks_the_required_fields():
+def test_a_draft_only_needs_a_title(client):
+    _rules(CraftIn(title="Half-finished bowl", status="draft"))
+
+
+def test_publishing_checks_the_required_fields(client):
     with pytest.raises(HTTPException) as caught:
-        check_rules(CraftIn(title="Half-finished bowl", status="published"))
+        _rules(CraftIn(title="Half-finished bowl", status="published"))
     assert caught.value.status_code == 422
     text = " ".join(caught.value.detail).lower()
     for word in ("description", "category", "tag", "dimensions", "colors", "tools", "backstory", "location"):

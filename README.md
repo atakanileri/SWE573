@@ -1,6 +1,6 @@
 This repo is the assignment for the class with the code SWE573 (Software Development Practice).
 
-The site is a small prototype of the Indigenous Crafts & Arts website. People log in, browse a masonry feed of crafts, open a post, publish a new one, or save a draft and publish it later. There is a FastAPI backend, a database (SQLite on your machine, Postgres when it is deployed), and a plain HTML page that calls the API. It is not the finished product. A lot of the requirements (admin tools, real email, photo upload, a real map) are still missing on purpose. `docs/prototype-guide.md` explains what is here and what is not, and `docs/adr/` is where I wrote down why I picked this stack.
+The site is a small prototype of the Indigenous Crafts & Arts website. People log in, browse a masonry feed of crafts, open a post, publish a new one, or save a draft and publish it later. They can propose a tag or category, and the demo account can approve it. There is a FastAPI backend, a database (SQLite on your machine, Postgres when it is deployed), and a plain HTML page that calls the API. It is not the finished product. A lot of the requirements (report moderation, analytics, real email, photo upload, a real map) are still missing on purpose. `docs/prototype-guide.md` explains what is here and what is not, and `docs/adr/` is where I wrote down why I picked this stack.
 
 ## System requirements
 
@@ -29,7 +29,7 @@ Then open:
 - the site: http://127.0.0.1:8000
 - the API docs (Swagger): http://127.0.0.1:8000/docs
 
-The test account is `atakan@example.com` / `password`. The feed is already filled with sample crafts. The orange **API counter** button in the header (and on the login card) calls `POST /api/counter`. The number should go up by one each click. The same call can be tried from the `/docs` page without logging in.
+The test account is `atakan@example.com` / `password`. That account is the admin, so it can approve a tag or category proposal. The feed is already filled with sample crafts. The orange **API counter** button in the header (and on the login card) calls `POST /api/counter`. The number should go up by one each click. The same call can be tried from the `/docs` page without logging in.
 
 Stop it with Ctrl+C. The database file lives in a Docker volume named `craft-data`, so the posts are still there the next time you start.
 
@@ -58,7 +58,7 @@ None of these are required on your own machine. The defaults are what `docker co
 | `PORT` | Set by Render | `8000` | The port uvicorn listens on. Render sends traffic to this port (their default is `10000`). Compose publishes `8000`. |
 | `DATABASE_URL` | On Render, yes | SQLite file `backend/data/crafts.db` | SQLAlchemy URL. Compose sets `sqlite:////data/crafts.db`. Render sets a Postgres URL from the database in `render.yaml`. `postgres://` and `postgresql://` are rewritten to `postgresql+psycopg://` in `database.py`. |
 | `SEED_DEMO_DATA` | No | `1` | `1` loads the sample users and crafts when the users table is empty. `0` skips that. Restarting does not insert them again. |
-| `DEMO_EMAIL` | No | `atakan@example.com` | Test account email, used only when the sample data is first inserted. |
+| `DEMO_EMAIL` | No | `atakan@example.com` | Test account email, used when the sample data is first inserted. That account is the admin. Every startup adds an `admins` row for it if the user exists, even when the crafts are not inserted again. |
 | `DEMO_PASSWORD` | No | `password` | Test account password. This is a public class login, also written in `render.yaml`. It is not a private secret. If you pick a different one, set it in the environment of the machine that runs the app. Do not commit it. Changing it after the first boot does nothing, because the seed skips a database that already has users. |
 
 `PORT` is read by the process command in the `Dockerfile`, not by Python. The others are read when the app starts.

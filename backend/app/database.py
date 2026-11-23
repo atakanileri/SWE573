@@ -8,9 +8,12 @@ DATABASE_URL decides which database we talk to.
 - On Render it is a Postgres URL, filled in from the database in render.yaml.
   The password in that URL is created by Render. It is not in this repo.
 
-Tables are created on startup. There is no migration tool. If a column
-changes during development, delete the local file (or the Render database)
-and let startup create it again. seed.py puts the sample crafts back.
+Tables are created on startup. There is no migration tool. A brand-new
+table is created. A new column on a table that already exists is not
+added, which is why the admin flag is a row in `admins` and not a column
+on `users`. If a column changes during development, delete the local file
+(or the Render database) and let startup create it again. seed.py puts
+the sample crafts back.
 Drafts did not add a column. A draft is a crafts row with status "draft".
 """
 

@@ -4,7 +4,7 @@ This is the first working cut of the Indigenous Crafts & Arts site for SWE 573. 
 
 ## What you can do in it
 
-Log in, see the sample crafts in a masonry grid, open one, search, filter by category or tag, favorite, report, and publish a new craft or save a draft. A draft only needs a title. It shows under **My drafts** for the author, and it is left out of Browse and Search until it is published with the required fields filled in. The orange **API counter** is a separate toy endpoint so I can show that a click reaches the database. It has nothing to do with crafts.
+Log in, see the sample crafts in a masonry grid, open one, search, filter by category or tag, favorite, report, and publish a new craft or save a draft. You can also propose a tag or category. It stays pending until an admin approves it. A draft only needs a title. It shows under **My drafts** for the author, and it is left out of Browse and Search until it is published with the required fields filled in. The orange **API counter** is a separate toy endpoint so I can show that a click reaches the database. It has nothing to do with crafts.
 
 ## What is deliberately not here
 
@@ -16,7 +16,7 @@ I left these out so the prototype stayed a prototype.
 - No photo upload. A post stores an image URL, or nothing, and the page shows the grey placeholder.
 - The map on a post is a grid with a pin, not a real map. The location text (and optional lat/lng) is what is stored.
 - Reports are saved, and you can list your own, but there is no admin screen to hide or delete someone else's post.
-- No tag proposals, no analytics, no admin role. Categories and tags are a fixed list in `backend/app/constants.py`.
+- No analytics. The demo account is an admin for tags and categories only. There is still no screen to hide or delete someone else's post, and no screen to appoint another admin.
 - The database is not backed up on a schedule. The deployed site is HTTPS because Render terminates TLS. The free Render database expires; see `docs/adr/007-deploy.md`.
 
 ## Folder layout
@@ -35,8 +35,9 @@ backend/
     models.py           the tables
     schemas.py          the JSON shapes (what /docs shows)
     auth.py             password hash and the login token
-    constants.py        official categories and tags
-    seed.py             sample users and crafts, first run only
+    constants.py        starter categories and tags
+    vocabulary.py       official list, proposals, name cleanup
+    seed.py             sample users and crafts, and the demo admin
     routers/            the actual endpoints, split by topic
   tests/                API tests
 frontend/
@@ -70,10 +71,10 @@ In `/docs`, click **Authorize** and paste the token from login (without the word
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/auth/me` | The logged-in user, including their own email. |
+| GET | `/api/auth/me` | The logged-in user, including their own email and `is_admin`. |
 | POST | `/api/auth/logout` | Deletes the session. The token stops working. |
-| GET | `/api/categories` | The official category list. |
-| GET | `/api/tags` | The official tag list. |
+| GET | `/api/categories` | Official categories. Pending proposals are not included. |
+| GET | `/api/tags` | Official tags. Pending proposals are not included. |
 | GET | `/api/crafts` | Published posts, newest first. Drafts are not in this list. |
 | GET | `/api/crafts?q=wool` | Search published posts (title, description, location, backstory, category, tags, author name). A draft never matches, including when you also pass `mine=true`. |
 | GET | `/api/crafts?category=Pottery` | Published posts in that category. Unknown names are a 400. |
@@ -90,8 +91,14 @@ In `/docs`, click **Authorize** and paste the token from login (without the word
 | POST | `/api/crafts/{id}/favorite` | Favorite, or un-favorite if it was already on. |
 | POST | `/api/crafts/{id}/reports` | Body: `reason`, `details`. Both are required. |
 | GET | `/api/reports` | Reports I have sent. Not an admin inbox. |
+| GET | `/api/proposals` | My proposals. An admin sees everyone's. `?status=pending` is the review queue. |
+| POST | `/api/proposals` | Body: `kind` (`tag` or `category`) and `name`. A normal user creates a pending row. An admin adds the name to the official list. A name that is already official is 409. |
+| POST | `/api/proposals/{id}/approve` | Admin only. The name becomes official and can be picked on a post. Anyone else gets 403. |
+| POST | `/api/proposals/{id}/reject` | Admin only. A pending name stays off the list. Rejecting an official name is 400, because posts already store that text. |
 
 Publishing without a location (or without the other required fields) is a 422, and `detail` is a list of sentences. A draft can omit them. Search, category and tag never return a draft unless the request is the author's draft list (`mine=true` and `status=draft`).
+
+A pending tag or category is not official, so it cannot be saved on a post and it cannot be used as a filter. After approve, `GET /api/tags` or `GET /api/categories` includes it, and the form's chips reload from those routes.
 
 ## How a request gets to the database
 
@@ -146,12 +153,14 @@ Or from `backend/`, with the dependencies installed:
 pytest -v
 ```
 
-`tests/conftest.py` points `DATABASE_URL` at a temporary file for each test and starts the app with FastAPI's TestClient, so the tests hit the real routes. They cover health, the counter, the docs page, login, the seeded feed, creating a post, the location rule, drafts (save an unfinished one, hide it from the feed and from search, edit it, reject a publish that is still incomplete, then publish it), edit/delete permissions, search, favorites, reports, and logout. `tests/test_drafts.py` is the draft file. It also calls `check_rules` directly, which is the same check the routes use.
+`tests/conftest.py` points `DATABASE_URL` at a temporary file for each test and starts the app with FastAPI's TestClient, so the tests hit the real routes. They cover health, the counter, the docs page, login, the seeded feed, creating a post, the location rule, drafts (save an unfinished one, hide it from the feed and from search, edit it, reject a publish that is still incomplete, then publish it), edit/delete permissions, search, favorites, reports, logout, and tag approval (propose, the 403 for a non-admin, approve, reject). `tests/test_drafts.py` is the draft file. `tests/test_tag_approval.py` is the tag file. The draft file also calls `check_rules` directly, which is the same check the routes use.
 
 ## Demo account
 
 `atakan@example.com` / `password`
 
-That user owns the "Hand-woven Yörük kilim" sample post. The other names on the cards are sample authors. I generated passwords for them and did not write them down, so they can't be used to log in.
+That user owns the "Hand-woven Yörük kilim" sample post, and that user is the admin for tag and category proposals. Startup writes a row in `admins` for this email every time, including when the sample crafts are not inserted again. The other names on the cards are sample authors. I generated passwords for them and did not write them down, so they can't be used to log in.
+
+To try a proposal: register a second account, open **New Craft**, type a tag under the official chips, and click **Propose**. It will not appear in the chips. Log out, log in as `atakan@example.com`, open **Proposals** in the account menu, and click **Approve**. The tag can then be picked on a post.
 
 `DEMO_EMAIL` and `DEMO_PASSWORD` replace that login the first time the sample data is inserted. They do not change a database that already has users. The deployed site sets them in `render.yaml` to the same public values.

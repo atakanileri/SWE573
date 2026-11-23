@@ -2,6 +2,8 @@
 
 One row in `counter` is the little proof-the-API-works number.
 Craft posts, users, sessions, favorites and reports are the rest.
+Categories and tags live in `vocabulary`. Who is an admin lives in
+`admins`, not as a column on the user. See docs/adr/008-tag-approval.md.
 """
 
 from datetime import datetime
@@ -102,6 +104,49 @@ class Report(Base):
 
     reporter: Mapped[User] = relationship()
     craft: Mapped[Craft] = relationship()
+
+
+class Vocabulary(Base):
+    """One category or tag.
+
+    status is "official" (it can be picked on a post), "pending" (someone
+    proposed it), or "rejected". The craft still stores the name as text.
+    name_key is the lowercase form, so "Pottery" and "pottery" cannot both
+    exist. A new table is created by create_all; a new column on crafts
+    would not be.
+    """
+
+    __tablename__ = "vocabulary"
+    __table_args__ = (UniqueConstraint("kind", "name_key", name="uq_vocabulary_kind_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # "category" or "tag".
+    kind: Mapped[str] = mapped_column(String(20), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    name_key: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    # Empty for the starter list copied from constants.py.
+    proposed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    proposer: Mapped[User | None] = relationship()
+
+
+class Admin(Base):
+    """A user who can approve tag and category proposals.
+
+    This is a table of its own so create_all can add it on the Render
+    database. A role column on users would not be added to a table that
+    already has rows.
+    """
+
+    __tablename__ = "admins"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    user: Mapped[User] = relationship()
 
 
 class Counter(Base):

@@ -23,6 +23,7 @@
           <button type="button" id="mMine">My posts</button>
           <button type="button" id="mDrafts">My drafts<span class="cnt draft-count" id="dcnt"></span></button>
           <button type="button" id="mFavs">Favorites</button>
+          <button type="button" id="mProposals">Proposals</button>
           <button type="button" id="mLogout">Log out</button>
         </div>
       </span>
@@ -68,12 +69,23 @@
         <div class="f" id="fCat">
           <label>Category <span class="req">*</span></label>
           <div class="sel" id="catSel"></div>
+          <div class="propose">
+            <label class="sr" for="proposeCat">Propose a category</label>
+            <input id="proposeCat" maxlength="80" placeholder="Propose a category, e.g. Baskets">
+            <button type="button" class="b" id="proposeCatBtn">Propose</button>
+          </div>
+          <div class="hint" id="catProposeHint">A new category stays pending until an admin approves it.</div>
           <div class="errmsg">Pick a category.</div>
         </div>
         <div class="f" id="fTags">
           <label>Tags <span class="req">*</span></label>
           <div class="sel" id="tagSel"></div>
-          <div class="hint">These are the official tags. Proposing a new one isn't in this prototype.</div>
+          <div class="propose">
+            <label class="sr" for="proposeTag">Propose a tag</label>
+            <input id="proposeTag" maxlength="40" placeholder="Propose a tag, e.g. copper">
+            <button type="button" class="b" id="proposeTagBtn">Propose</button>
+          </div>
+          <div class="hint" id="tagProposeHint">A new tag stays pending until an admin approves it.</div>
           <div class="errmsg">Pick at least one tag.</div>
         </div>
       </div>
@@ -133,6 +145,15 @@
           <button type="button" class="b pri" id="publishBtn">Publish</button>
         </div>
       </div>
+    </main>
+  </section>
+
+  <section id="vProposals" class="hide">
+    <main class="form">
+      <h1 id="proposalHeading">Proposals</h1>
+      <p class="sub" id="proposalSub"></p>
+      <div id="proposalList"></div>
+      <p class="hint hide" id="proposalEmpty"></p>
     </main>
   </section>
 

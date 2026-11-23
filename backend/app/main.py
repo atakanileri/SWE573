@@ -15,8 +15,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app import database
 from app.models import Counter
-from app.routers import auth_routes, counter, crafts, health
-from app.seed import demo_email, seed
+from app.routers import auth_routes, counter, crafts, health, proposals
+from app.seed import demo_email, ensure_demo_admin, seed
+from app.vocabulary import ensure_official_vocabulary
 
 logger = logging.getLogger("crafts")
 
@@ -39,6 +40,11 @@ async def lifespan(_app: FastAPI):
                 "Test login created for %s. Later startups leave that account as it is.",
                 demo_email(),
             )
+        # These two run even when seed() skipped. Render already has users,
+        # and create_all will not add a column to that table. The new tables
+        # are filled here. See docs/adr/008-tag-approval.md.
+        ensure_official_vocabulary(db)
+        ensure_demo_admin(db)
         logger.info("Indigenous Crafts prototype is up. API docs: /docs")
     finally:
         db.close()
@@ -65,6 +71,7 @@ app.include_router(health.router)
 app.include_router(counter.router)
 app.include_router(auth_routes.router)
 app.include_router(crafts.router)
+app.include_router(proposals.router)
 
 if FRONTEND_DIR.is_dir():
     # Mounted last so /docs, /openapi.json and /api stay with FastAPI.
