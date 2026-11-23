@@ -1,9 +1,11 @@
 """Craft posts: the feed, one post, create, update, delete, favorite, report.
 
-Drafts are a status on the same table. A draft is returned only to its author.
-Publishing checks the fields the requirements treat as mandatory (including
-a location). The photo is a URL in this prototype, and it is optional: an
-empty URL means the page shows the grey placeholder from the mockup.
+Drafts are a status on the same table, not a second table. A draft is
+returned only to its author. The public feed, search, and the category and
+tag chips only see published posts. Publishing checks the fields the
+requirements treat as mandatory (including a location). The photo is a URL
+in this prototype, and it is optional: an empty URL means the page shows
+the grey placeholder from the mockup.
 """
 
 from typing import Annotated
@@ -99,6 +101,18 @@ def apply_fields(craft: Craft, body: CraftIn) -> None:
     craft.status = body.status
 
 
+def is_search_or_filter(q: str | None, category: str | None, tag: str | None) -> bool:
+    """True for the search box or a category/tag chip.
+
+    Those look at published posts. The draft list is a different request
+    (mine=true and status=draft). That list can use the same filters, and
+    it is still only the caller's drafts.
+    """
+    if category or tag:
+        return True
+    return bool(q and q.strip())
+
+
 def _like(term: str) -> str:
     # Escape LIKE wildcards so a search for "%" doesn't match everything.
     escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -136,6 +150,14 @@ def list_crafts(
     favorites: bool = False,
     status: str | None = None,
 ) -> list[CraftOut]:
+    """Published posts, newest first.
+
+    `q`, `category` and `tag` only match published posts. The one exception
+    is the caller's own draft list: `mine=true` and `status=draft`, which
+    may also be narrowed with those filters. `status=draft` without
+    `mine=true` is a 400. `mine=true` on its own returns that user's
+    published posts and drafts.
+    """
     query = db.query(Craft).join(User, Craft.author_id == User.id)
 
     if favorites:
@@ -143,11 +165,16 @@ def list_crafts(
             Favorite, (Favorite.craft_id == Craft.id) & (Favorite.user_id == user.id)
         ).filter(Craft.status == "published")
     elif mine:
+        # My posts, or my drafts when status=draft. Never someone else's.
         query = query.filter(Craft.author_id == user.id)
         if status:
             if status not in ("published", "draft"):
                 raise HTTPException(status_code=400, detail="Status must be published or draft.")
             query = query.filter(Craft.status == status)
+        elif is_search_or_filter(q, category, tag):
+            # Search and the chips are not the draft list. A draft shows up
+            # here only when status=draft was asked for explicitly.
+            query = query.filter(Craft.status == "published")
     else:
         if status:
             raise HTTPException(
@@ -192,6 +219,7 @@ def get_craft(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[DbSession, Depends(get_db)],
 ) -> CraftOut:
+    """One post. Someone else's draft is a 404, the same as a missing post."""
     craft = visible_craft(db, craft_id, user)
     return to_out(craft, craft.id in _favorite_ids(db, user.id), craft.author_id == user.id)
 
@@ -202,6 +230,12 @@ def create_craft(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[DbSession, Depends(get_db)],
 ) -> CraftOut:
+    """Create a post.
+
+    `status=draft` saves an unfinished post. A draft only needs a title.
+    `status=published` (the default) checks the required fields, including
+    a location. A new draft is visible only to the author.
+    """
     check_rules(body)
     craft = Craft(author_id=user.id, card_height=240)
     apply_fields(craft, body)
@@ -218,11 +252,19 @@ def update_craft(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[DbSession, Depends(get_db)],
 ) -> CraftOut:
+    """Replace one of your posts.
+
+    Sending `status=published` is how a draft goes live. The required
+    fields are checked first. If that check fails, the saved draft is
+    left unchanged. Only the author can update. Someone else's draft is
+    a 404.
+    """
     craft = db.get(Craft, craft_id)
     if craft is None or (craft.status == "draft" and craft.author_id != user.id):
         raise HTTPException(status_code=404, detail="Craft not found.")
     if craft.author_id != user.id:
         raise HTTPException(status_code=403, detail="You can only change your own posts.")
+    # Check before writing. A rejected publish must leave the draft as it was.
     check_rules(body)
     apply_fields(craft, body)
     db.commit()

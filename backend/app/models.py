@@ -66,7 +66,10 @@ class Craft(Base):
     location_text: Mapped[str] = mapped_column(String(200), default="")
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    # "published" shows up in the feed. "draft" is visible only to the author.
+    # "published" shows up in the feed. "draft" is the same row before it is
+    # published, and only the author can see it. No second table and no extra
+    # column: Render builds tables with create_all, which does not alter a
+    # table that already exists. status was already there from the prototype.
     status: Mapped[str] = mapped_column(String(20), default="published", index=True)
     # How tall the grey placeholder is, in pixels. Seeded posts use the
     # heights from the mockup so the masonry grid looks similar. New posts

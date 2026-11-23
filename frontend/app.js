@@ -172,8 +172,13 @@ function renderChips() {
 
 function craftsUrl() {
   const params = new URLSearchParams();
-  if (view === "mine") params.set("mine", "true");
-  else if (view === "drafts") {
+  // My posts and My drafts are separate lists. The feed and the search box
+  // never ask for drafts. Search on the server skips drafts too, unless the
+  // request is this drafts list.
+  if (view === "mine") {
+    params.set("mine", "true");
+    params.set("status", "published");
+  } else if (view === "drafts") {
     params.set("mine", "true");
     params.set("status", "draft");
   } else if (view === "favs") params.set("favorites", "true");
@@ -196,12 +201,31 @@ function sectionTitle() {
   return "";
 }
 
+function setNav(browsing) {
+  $("nBrowse").className = "navlink" + (browsing && view === "home" ? " cur" : "");
+  $("nMine").className = "navlink" + (browsing && view === "mine" ? " cur" : "");
+  $("nDrafts").className = "navlink" + (browsing && view === "drafts" ? " cur" : "");
+}
+
+function emptyMessage() {
+  if (view === "drafts") {
+    return "No drafts yet. On the new craft form, Save as Draft keeps an unfinished post private.";
+  }
+  if (view === "mine") return "You have not published a craft yet.";
+  if (view === "favs") return "No favorites yet.";
+  // Home search and the chips only list published posts, so say so.
+  if (view === "home" && ($("q").value.trim() || chip !== "All")) {
+    return "No published crafts match.";
+  }
+  return "Nothing here yet.";
+}
+
 async function loadCrafts() {
   $("filters").className = "top" + (view === "home" ? "" : " hide");
   const title = sectionTitle();
   $("secTitle").textContent = title;
   $("secTitle").className = "sec" + (title ? "" : " hide");
-  $("nBrowse").className = "navlink" + (view === "home" ? " cur" : "");
+  setNav(true);
   $("grid").innerHTML = '<div class="empty">Loading…</div>';
   const res = await api("GET", craftsUrl());
   if (!res.ok) {
@@ -228,7 +252,7 @@ function photoHtml(craft, tall) {
 
 function renderGrid() {
   if (!crafts.length) {
-    $("grid").innerHTML = '<div class="empty">Nothing here yet.</div>';
+    $("grid").innerHTML = '<div class="empty">' + esc(emptyMessage()) + "</div>";
     return;
   }
   $("grid").innerHTML = crafts
@@ -263,7 +287,7 @@ function fillDetail(craft, preview) {
     .join("");
   let actions = "";
   if (preview) {
-    actions = '<span class="hint">Preview — this is not saved yet.</span>';
+    actions = '<span class="hint">Preview — this is how it will look. It is not published yet.</span>';
   } else if (craft.status !== "draft") {
     actions =
       '<button type="button" class="b' + (craft.favorited ? " on" : "") + '" id="detFav">' +
@@ -274,17 +298,23 @@ function fillDetail(craft, preview) {
     actions += '<button type="button" class="b" id="detEdit">Edit</button>' +
       '<button type="button" class="b" id="detDelete">Delete</button>';
   }
+  const draftHint = !preview && craft.status === "draft"
+    ? '<p class="hint">Draft. Only you can see this, and it is not in the feed or in search. Edit it, then publish when the required fields are filled in.</p>'
+    : "";
   const description = craft.description
     ? '<div class="para"><b>Description</b>' + esc(craft.description) + "</div>"
     : "";
   const note = craft.note
     ? '<div class="para"><b>Note from the poster</b>' + esc(craft.note) + "</div>"
     : "";
+  // No place yet (a new draft, often). A solid pin would look like a real location.
+  const placed = !!craft.location_text || (craft.latitude != null && craft.longitude != null);
   $("det").innerHTML =
     '<button type="button" class="x" id="closeDet" aria-label="Close">×</button>' +
     '<div class="det">' + photoHtml(craft, true) +
     '<div class="info"><h1>' + esc(craft.title) + "</h1>" +
     '<div class="by">Posted by ' + esc(craft.author_name || (me && me.display_name) || "") + "</div>" +
+    draftHint +
     '<div class="kv"><b>Category</b>' + esc(craft.category || "—") + "</div>" +
     '<div class="kv"><b>Tags</b>' + (tags || "—") + "</div>" +
     description +
@@ -293,7 +323,7 @@ function fillDetail(craft, preview) {
     '<div class="kv"><b>Tools</b>' + esc(craft.tools || "—") + "</div>" +
     '<div class="para"><b>Backstory</b>' + esc(craft.backstory || "—") + "</div>" +
     note +
-    '<div class="mini"><div class="mpin" style="' + pinStyle(craft.latitude, craft.longitude) + '"></div>' +
+    '<div class="mini"><div class="' + (placed ? "mpin" : "mpin ghost") + '" style="' + pinStyle(craft.latitude, craft.longitude) + '"></div>' +
     '<div class="mlbl">' + esc(craft.location_text || "Location not set") + "</div></div>" +
     '<div style="margin-top:16px">' + actions + "</div></div></div>";
   $("ovDet").classList.add("open");
@@ -375,7 +405,11 @@ async function deleteCraft(craft) {
 
 async function refreshDraftCount() {
   const res = await api("GET", "/api/crafts?mine=true&status=draft");
-  if (res.ok) $("dcnt").textContent = res.data.length ? String(res.data.length) : "";
+  // Leading space so the header reads "My drafts 2" and stays "My drafts" at zero.
+  const text = res.ok && res.data.length ? " " + res.data.length : "";
+  document.querySelectorAll(".draft-count").forEach(function (el) {
+    el.textContent = text;
+  });
 }
 
 function go(next) {
@@ -439,7 +473,7 @@ async function openForm(craft) {
   }
   renderSelectors();
   show("form");
-  $("nBrowse").className = "navlink";
+  setNav(false);
 }
 
 function placePin(on) {
@@ -537,6 +571,8 @@ async function save(status) {
     editingId = res.data.id;
     $("draftNote").textContent = "Saved as draft just now";
     $("formHeading").textContent = "Edit draft";
+    // The button is at the bottom. Scroll up so the new heading is visible.
+    window.scrollTo(0, 0);
     toast("Draft saved — find it under your name, My drafts.");
     refreshDraftCount();
     return;
@@ -597,6 +633,7 @@ $("landingCounter").addEventListener("click", bumpCounter);
 $("logo").addEventListener("click", function () { if (token) go("home"); });
 $("nBrowse").addEventListener("click", function () { go("home"); });
 $("nMine").addEventListener("click", function () { go("mine"); });
+$("nDrafts").addEventListener("click", function () { go("drafts"); });
 $("nNew").addEventListener("click", function () { openForm(null); });
 $("mMine").addEventListener("click", function () { $("menu").classList.remove("open"); go("mine"); });
 $("mDrafts").addEventListener("click", function () { $("menu").classList.remove("open"); go("drafts"); });
@@ -635,10 +672,9 @@ $("chips").addEventListener("click", function (event) {
 });
 
 function openCard(card) {
-  const id = Number(card.getAttribute("data-id"));
-  const craft = crafts.find(function (item) { return item.id === id; });
-  if (craft && craft.status === "draft") openForm(craft);
-  else openDetail(id);
+  // Drafts open in the same popup as published posts. The server returns
+  // 404 if the draft is not yours, so the page does not keep a second path.
+  openDetail(Number(card.getAttribute("data-id")));
 }
 
 $("grid").addEventListener("click", function (event) {
