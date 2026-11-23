@@ -9,7 +9,7 @@ empty URL means the page shows the grey placeholder from the mockup.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import String, cast, or_
+from sqlalchemy import Text, cast, or_
 from sqlalchemy.orm import Session as DbSession
 
 from app.auth import get_current_user
@@ -164,7 +164,9 @@ def list_crafts(
         tag = tag.strip().lower().lstrip("#")
         if tag not in TAGS:
             raise HTTPException(status_code=400, detail="Unknown tag.")
-        query = query.filter(cast(Craft.tags, String).like(f'%"{tag}"%'))
+        # Text, not String. Postgres rejects CAST(json AS VARCHAR).
+        # SQLite accepts CAST(... AS TEXT), which is what this compiles to.
+        query = query.filter(cast(Craft.tags, Text).like(f'%"{tag}"%'))
     if q and q.strip():
         pattern = _like(q.strip()[:100])
         query = query.filter(
@@ -174,7 +176,7 @@ def list_crafts(
                 Craft.location_text.ilike(pattern, escape="\\"),
                 Craft.backstory.ilike(pattern, escape="\\"),
                 Craft.category.ilike(pattern, escape="\\"),
-                cast(Craft.tags, String).ilike(pattern, escape="\\"),
+                cast(Craft.tags, Text).ilike(pattern, escape="\\"),
                 User.display_name.ilike(pattern, escape="\\"),
             )
         )

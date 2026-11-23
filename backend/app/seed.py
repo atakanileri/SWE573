@@ -1,14 +1,21 @@
 """Sample users and crafts, so the feed is not empty on a fresh database.
 
 If the users table already has anyone in it, this does nothing. Restarting
-the app will not duplicate the sample posts.
+the app will not duplicate the sample posts, and it will not change the
+demo password.
 
-The only password that is meant to be used is the demo account:
-    atakan@example.com / password
+The only password that is meant to be used is the demo account. By default
+that is atakan@example.com / password. DEMO_EMAIL and DEMO_PASSWORD replace
+those two values when they are set. They are read at startup. The default
+password is a public class login, written in the README. It is not a
+private secret. Do not commit a different password; set it in the
+environment on the machine that runs the app.
+
 The other people exist so the seeded posts have different authors. Their
 passwords are random and not written down anywhere.
 """
 
+import os
 import secrets
 from datetime import timedelta
 
@@ -17,9 +24,27 @@ from sqlalchemy.orm import Session as DbSession
 from app.auth import hash_password
 from app.models import Craft, User, utcnow
 
-DEMO_EMAIL = "atakan@example.com"
-DEMO_PASSWORD = "password"
-DEMO_NAME = "Atakan İ."
+# Public class login. Tests and the README use these when the env vars are unset.
+DEFAULT_DEMO_EMAIL = "atakan@example.com"
+DEFAULT_DEMO_PASSWORD = "password"
+
+
+def demo_email() -> str:
+    """Email of the account a grader can log in with."""
+    return os.environ.get("DEMO_EMAIL", "").strip() or DEFAULT_DEMO_EMAIL
+
+
+def demo_password() -> str:
+    """Password of that account. Blank (or unset) keeps the public default."""
+    return os.environ.get("DEMO_PASSWORD", "").strip() or DEFAULT_DEMO_PASSWORD
+
+
+def _person_email(sample_email: str) -> str:
+    # Posts written as the default demo author follow DEMO_EMAIL, so that
+    # account still owns the kilim if the email is overridden.
+    if sample_email == DEFAULT_DEMO_EMAIL:
+        return demo_email()
+    return sample_email
 
 # (email, display name, title, location, lat, lng, category, tags, height,
 #  dimensions, colors, tools, backstory, note, description)
@@ -299,20 +324,23 @@ _SAMPLE = [
 ]
 
 
-def seed(db: DbSession) -> None:
+def seed(db: DbSession) -> bool:
+    """Insert the sample rows. Returns True only when it actually inserted them."""
     if db.query(User).first() is not None:
-        return
+        return False
 
     now = utcnow()
     users: dict[str, User] = {}
+    login_email = demo_email()
+    login_password = demo_password()
 
     # Each person is created once. Anyone who is not the demo account gets a
     # password we throw away; those accounts only exist so posts have authors.
     for row in _SAMPLE:
-        email, display_name = row[0], row[1]
+        email, display_name = _person_email(row[0]), row[1]
         if email in users:
             continue
-        password = DEMO_PASSWORD if email == DEMO_EMAIL else secrets.token_urlsafe(18)
+        password = login_password if email == login_email else secrets.token_urlsafe(18)
         user = User(
             email=email,
             display_name=display_name,
@@ -345,7 +373,7 @@ def seed(db: DbSession) -> None:
         ) = row
         db.add(
             Craft(
-                author_id=users[email].id,
+                author_id=users[_person_email(email)].id,
                 title=title,
                 description=description,
                 image_url="",
@@ -369,3 +397,4 @@ def seed(db: DbSession) -> None:
         )
 
     db.commit()
+    return True

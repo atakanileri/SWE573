@@ -1,8 +1,8 @@
 """The FastAPI app.
 
-Startup creates the SQLite tables, makes sure the counter row exists, and
-loads the sample crafts the first time. The pages in /frontend are served
-by this same process, so the browser and the API share one origin.
+Startup creates the tables, makes sure the counter row exists, and loads
+the sample crafts the first time. The pages in /frontend are served by
+this same process, so the browser and the API share one origin.
 """
 
 import logging
@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app import database
 from app.models import Counter
 from app.routers import auth_routes, counter, crafts, health
-from app.seed import seed
+from app.seed import demo_email, seed
 
 logger = logging.getLogger("crafts")
 
@@ -32,8 +32,13 @@ async def lifespan(_app: FastAPI):
         if db.get(Counter, 1) is None:
             db.add(Counter(id=1, value=0))
             db.commit()
-        if os.environ.get("SEED_DEMO_DATA", "1") != "0":
-            seed(db)
+        if os.environ.get("SEED_DEMO_DATA", "1").strip() != "0" and seed(db):
+            # The password is not logged. It is the README default, or
+            # whatever DEMO_PASSWORD was set to on this machine.
+            logger.info(
+                "Test login created for %s. Later startups leave that account as it is.",
+                demo_email(),
+            )
         logger.info("Indigenous Crafts prototype is up. API docs: /docs")
     finally:
         db.close()
@@ -48,7 +53,7 @@ app = FastAPI(
         "Craft routes need a login token (Authorize button, top right). "
         "Health and the counter are open on purpose, so you can try them "
         "here without logging in. The counter is only there to show that a "
-        "request reaches SQLite and comes back."
+        "request reaches the database and comes back."
     ),
     lifespan=lifespan,
 )
