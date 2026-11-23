@@ -44,6 +44,7 @@ nav { display: flex; align-items: center; flex-wrap: wrap; }
   padding: 0;
 }
 .navlink.cur { color: #c0582b; font-weight: bold; }
+.navlink .draft-count { color: #999; font-weight: normal; }
 .navlink.btn {
   background: #c0582b;
   color: #fff;
