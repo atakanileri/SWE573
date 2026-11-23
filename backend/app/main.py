@@ -51,6 +51,9 @@ app = FastAPI(
     description=(
         "Prototype API for the SWE 573 Indigenous Crafts & Arts site. "
         "Craft routes need a login token (Authorize button, top right). "
+        "A draft is a craft with status \"draft\". It only needs a title, "
+        "only its author can read it, and it is left out of the feed and of "
+        "search. Publish it later with PUT, once the required fields are set. "
         "Health and the counter are open on purpose, so you can try them "
         "here without logging in. The counter is only there to show that a "
         "request reaches the database and comes back."

@@ -11,6 +11,7 @@ DATABASE_URL decides which database we talk to.
 Tables are created on startup. There is no migration tool. If a column
 changes during development, delete the local file (or the Render database)
 and let startup create it again. seed.py puts the sample crafts back.
+Drafts did not add a column. A draft is a crafts row with status "draft".
 """
 
 import logging
