@@ -1,0 +1,31 @@
+# One service is enough for the prototype: FastAPI serves the pages and the API,
+# and SQLite is just a file. The named volume keeps that file when the
+# container is recreated.
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////data/crafts.db
+      SEED_DEMO_DATA: "1"
+    volumes:
+      - craft-data:/data
+    restart: unless-stopped
+    healthcheck:
+      # PORT is 8000 here. The same check follows PORT if it is set.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os, urllib.request; port = os.environ.get('PORT', '8000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  craft-data:
