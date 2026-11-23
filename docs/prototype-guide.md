@@ -17,20 +17,21 @@ I left these out so the prototype stayed a prototype.
 - The map on a post is a grid with a pin, not a real map. The location text (and optional lat/lng) is what is stored.
 - Reports are saved, and you can list your own, but there is no admin screen to hide or delete someone else's post.
 - No tag proposals, no analytics, no admin role. Categories and tags are a fixed list in `backend/app/constants.py`.
-- No HTTPS, and the database is not backed up on a schedule.
+- The database is not backed up on a schedule. The deployed site is HTTPS because Render terminates TLS. The free Render database expires; see `docs/adr/007-deploy.md`.
 
 ## Folder layout
 
 ```
 Dockerfile              image build
 docker-compose.yml      how "docker compose up" starts the app
-README.md               how to run it
+render.yaml             Render web service + Postgres (ADR 007)
+README.md               how to run it, and how to deploy it
 backend/
   requirements.txt      Python packages, with versions
   pytest.ini            so pytest can import the app
   app/
     main.py             creates the FastAPI app, starts the database, serves the page
-    database.py         SQLite connection
+    database.py         SQLite or Postgres, from DATABASE_URL
     models.py           the tables
     schemas.py          the JSON shapes (what /docs shows)
     auth.py             password hash and the login token
@@ -104,7 +105,7 @@ Example: I am logged in and I click **Publish** on a new kilim.
 
 The counter is the same path with fewer steps. `POST /api/counter` doesn't look at the token. It loads row 1 of the `counter` table, adds one, commits, and returns the number. The button just puts that number on the screen.
 
-SQLite is opened in `database.py`. The URL comes from the environment variable `DATABASE_URL`. If it isn't set, the file is `backend/data/crafts.db`. Tables are created on startup if they don't exist (`create_all`). Nothing here migrates old tables; if I change a column during development I delete the file and let it recreate. That is fine while the data is sample data.
+The database is opened in `database.py`. The URL comes from the environment variable `DATABASE_URL`. If it isn't set, the file is `backend/data/crafts.db` (SQLite). Docker Compose points it at a SQLite file on a volume. Render points it at Postgres; `postgres://` and `postgresql://` are rewritten so SQLAlchemy uses the psycopg driver. Tables are created on startup if they don't exist (`create_all`). Nothing here migrates old tables; if I change a column during development I delete the file (or the Render database) and let it recreate. That is fine while the data is sample data.
 
 `seed.py` runs on startup only when the users table is empty. Restarting does not duplicate the sample crafts.
 
@@ -115,8 +116,8 @@ SQLite is opened in `database.py`. The URL comes from the environment variable `
 - Starts from the small official Python 3.12 image.
 - Copies `requirements.txt` and installs it.
 - Copies the backend and the frontend into `/app`.
-- Sets `PYTHONPATH` so `import app` works, and points `DATABASE_URL` at `/data/crafts.db`.
-- Runs `uvicorn app.main:app` on `0.0.0.0:8000` so it is reachable from outside the container.
+- Sets `PYTHONPATH` so `import app` works, and points `DATABASE_URL` at `/data/crafts.db`. Render overrides that URL.
+- Runs `uvicorn app.main:app` on `0.0.0.0` and on `$PORT` (8000 when `PORT` is unset) so it is reachable from outside the container.
 
 `docker-compose.yml`
 
@@ -129,10 +130,16 @@ SQLite is opened in `database.py`. The URL comes from the environment variable `
 
 ## Tests
 
-From `backend/`, with the dependencies installed:
+From the repo root, inside Docker:
 
 ```bash
-pytest
+docker compose run --rm --build web pytest -v
+```
+
+Or from `backend/`, with the dependencies installed:
+
+```bash
+pytest -v
 ```
 
 `tests/conftest.py` points `DATABASE_URL` at a temporary file for each test and starts the app with FastAPI's TestClient, so the tests hit the real routes. They cover health, the counter, the docs page, login, the seeded feed, creating a post, the location rule, drafts being hidden from other users, edit/delete permissions, search, favorites, reports, and logout.
@@ -142,3 +149,5 @@ pytest
 `atakan@example.com` / `password`
 
 That user owns the "Hand-woven Yörük kilim" sample post. The other names on the cards are sample authors. I generated passwords for them and did not write them down, so they can't be used to log in.
+
+`DEMO_EMAIL` and `DEMO_PASSWORD` replace that login the first time the sample data is inserted. They do not change a database that already has users. The deployed site sets them in `render.yaml` to the same public values.

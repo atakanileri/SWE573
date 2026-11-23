@@ -10,7 +10,7 @@ Someone else (or me, on another machine) should be able to run the prototype wit
 
 One image, described in `Dockerfile`, and one service in `docker-compose.yml` named `web`.
 
-The image is `python:3.12-slim`. It installs `backend/requirements.txt`, copies `backend/` and `frontend/`, and starts uvicorn on port 8000. Compose maps that to port 8000 on the machine. `DATABASE_URL` is `sqlite:////data/crafts.db`, and `/data` is the named volume `craft-data`.
+The image is `python:3.12-slim`. It installs `backend/requirements.txt`, copies `backend/` and `frontend/`, and starts uvicorn. The port is `PORT` if that variable is set, and 8000 if it is not. Compose does not set `PORT`, and it maps 8000 on the machine to 8000 in the container. Render does set `PORT` (ADR 007). `DATABASE_URL` in Compose is `sqlite:////data/crafts.db`, and `/data` is the named volume `craft-data`.
 
 There is also a healthcheck that calls `GET /health`.
 

@@ -19,7 +19,7 @@ A small, real login, plus a clearly marked stub for email.
 
 There is no "forgot password" flow. The login page says so, instead of showing a button that does nothing.
 
-The demo account loaded with the sample posts is `atakan@example.com` / `password`. That password is fine for a class demo and must not be reused anywhere real.
+The demo account loaded with the sample posts is `atakan@example.com` / `password`. That password is fine for a class demo and must not be reused anywhere real. A deployed site can replace the email and password with `DEMO_EMAIL` and `DEMO_PASSWORD` (ADR 007). If those are unset, the values above are what gets created.
 
 ## Why this and not a fake login
 

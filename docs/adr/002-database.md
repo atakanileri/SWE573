@@ -1,6 +1,6 @@
 # ADR 002 — SQLite for the prototype
 
-Status: accepted for the first prototype (November 2026).
+Status: accepted for the first prototype (November 2026). Local runs and Docker Compose still use SQLite. The deployed site uses Postgres; that decision is ADR 007.
 
 ## What I had to decide
 
