@@ -1,6 +1,6 @@
 This repo is the assignment for the class with the code SWE573 (Software Development Practice).
 
-The site is a small prototype of the Indigenous Crafts & Arts website. People log in, browse a masonry feed of crafts, open a post, and publish a new one. There is a FastAPI backend, a database (SQLite on your machine, Postgres when it is deployed), and a plain HTML page that calls the API. It is not the finished product. A lot of the requirements (admin tools, real email, photo upload, a real map) are still missing on purpose. `docs/prototype-guide.md` explains what is here and what is not, and `docs/adr/` is where I wrote down why I picked this stack.
+The site is a small prototype of the Indigenous Crafts & Arts website. People log in, browse a masonry feed of crafts, open a post, publish a new one, or save a draft and publish it later. There is a FastAPI backend, a database (SQLite on your machine, Postgres when it is deployed), and a plain HTML page that calls the API. It is not the finished product. A lot of the requirements (admin tools, real email, photo upload, a real map) are still missing on purpose. `docs/prototype-guide.md` explains what is here and what is not, and `docs/adr/` is where I wrote down why I picked this stack.
 
 ## System requirements
 
@@ -80,6 +80,23 @@ Without Docker, from `backend/` with the virtualenv activated:
 ```bash
 pytest -v
 ```
+
+## Try a draft
+
+Log in as `atakan@example.com` / `password`.
+
+1. Click **+ New Craft**, type a title, leave the other fields empty, and click **Save as Draft**.
+2. Open **My drafts** in the header, or under your name. The post is there. **Browse** and **Search** do not show it. A second account does not see it either.
+3. Open the draft and click **Edit**. Fill in the required fields (description, category, at least one tag, dimensions, colors, tools, backstory, and location) and click **Publish**.
+4. It leaves **My drafts** and shows up at the top of the feed.
+
+Publishing with one of those fields still empty is rejected, and the draft stays private. The photo link stays optional.
+
+In Swagger at `/docs`, the same steps are the craft routes. Click **Authorize** and paste the token from `POST /api/auth/login` (Swagger adds the word Bearer). Then:
+
+- `POST /api/crafts` with `"status": "draft"` and a title. The other fields can be empty strings.
+- `GET /api/crafts?mine=true&status=draft` lists that draft. `GET /api/crafts?q=` with the same title does not.
+- `PUT /api/crafts/{id}` with `"status": "published"` and the full body publishes it. A body that is still missing a required field is a 422, and the draft is unchanged.
 
 ## Where to read next
 

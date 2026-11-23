@@ -4,7 +4,7 @@ This is the first working cut of the Indigenous Crafts & Arts site for SWE 573. 
 
 ## What you can do in it
 
-Log in, see the sample crafts in a masonry grid, open one, search, filter by category or tag, favorite, report, and publish a new craft or save a draft. The orange **API counter** is a separate toy endpoint so I can show that a click reaches the database. It has nothing to do with crafts.
+Log in, see the sample crafts in a masonry grid, open one, search, filter by category or tag, favorite, report, and publish a new craft or save a draft. A draft only needs a title. It shows under **My drafts** for the author, and it is left out of Browse and Search until it is published with the required fields filled in. The orange **API counter** is a separate toy endpoint so I can show that a click reaches the database. It has nothing to do with crafts.
 
 ## What is deliberately not here
 
@@ -74,22 +74,24 @@ In `/docs`, click **Authorize** and paste the token from login (without the word
 | POST | `/api/auth/logout` | Deletes the session. The token stops working. |
 | GET | `/api/categories` | The official category list. |
 | GET | `/api/tags` | The official tag list. |
-| GET | `/api/crafts` | Published posts, newest first. |
-| GET | `/api/crafts?q=wool` | Search in title, description, location, backstory, category, tags and author name. |
-| GET | `/api/crafts?category=Pottery` | Only that category. Unknown names are a 400. |
-| GET | `/api/crafts?tag=silver` | Posts that include that tag. |
+| GET | `/api/crafts` | Published posts, newest first. Drafts are not in this list. |
+| GET | `/api/crafts?q=wool` | Search published posts (title, description, location, backstory, category, tags, author name). A draft never matches, including when you also pass `mine=true`. |
+| GET | `/api/crafts?category=Pottery` | Published posts in that category. Unknown names are a 400. |
+| GET | `/api/crafts?tag=silver` | Published posts that include that tag. |
 | GET | `/api/crafts?mine=true` | My published posts and my drafts. |
-| GET | `/api/crafts?mine=true&status=draft` | Only my drafts. |
+| GET | `/api/crafts?mine=true&status=published` | Only my published posts. This is what **My posts** calls. |
+| GET | `/api/crafts?mine=true&status=draft` | Only my drafts. This is what **My drafts** calls. Another user gets an empty list. |
+| GET | `/api/crafts?mine=true&status=draft&q=bowl` | My drafts narrowed by the same search. Still only mine. |
 | GET | `/api/crafts?favorites=true` | Published posts I have favorited. |
 | GET | `/api/crafts/{id}` | One post. A draft that isn't mine is a 404. |
-| POST | `/api/crafts` | Create a post. `status` is `published` or `draft`. |
-| PUT | `/api/crafts/{id}` | Replace my post with a new copy of the fields. This is how a draft becomes published. |
+| POST | `/api/crafts` | Create a post. `status` is `published` or `draft`. A draft only needs a title. |
+| PUT | `/api/crafts/{id}` | Replace my post with a new copy of the fields. This is how a draft becomes published. If the required fields are missing, the response is 422 and the saved draft is left as it was. |
 | DELETE | `/api/crafts/{id}` | Delete my post, and its favorites and reports. |
 | POST | `/api/crafts/{id}/favorite` | Favorite, or un-favorite if it was already on. |
 | POST | `/api/crafts/{id}/reports` | Body: `reason`, `details`. Both are required. |
 | GET | `/api/reports` | Reports I have sent. Not an admin inbox. |
 
-Publishing without a location (or without the other required fields) is a 422, and `detail` is a list of sentences. A draft can omit them.
+Publishing without a location (or without the other required fields) is a 422, and `detail` is a list of sentences. A draft can omit them. Search, category and tag never return a draft unless the request is the author's draft list (`mine=true` and `status=draft`).
 
 ## How a request gets to the database
 
@@ -103,9 +105,11 @@ Example: I am logged in and I click **Publish** on a new kilim.
 6. The route builds a `Craft` row, `db.add` + `db.commit` writes it to SQLite, and the response JSON goes back. The new id is in that JSON.
 7. The page shows the toast "Your craft is published!" and calls `GET /api/crafts` again, so the new card is at the top of the grid.
 
+Saving a draft is the same path with `"status": "draft"`. `check_rules` then only requires a title (and a real category or tag, if you sent one). The row is written with status draft. `GET /api/crafts` leaves it out, including when `q` is set. `GET /api/crafts?mine=true&status=draft` returns it to the author. Publishing later is a PUT of that same id. The check runs before the write, so a 422 does not change the draft.
+
 The counter is the same path with fewer steps. `POST /api/counter` doesn't look at the token. It loads row 1 of the `counter` table, adds one, commits, and returns the number. The button just puts that number on the screen.
 
-The database is opened in `database.py`. The URL comes from the environment variable `DATABASE_URL`. If it isn't set, the file is `backend/data/crafts.db` (SQLite). Docker Compose points it at a SQLite file on a volume. Render points it at Postgres; `postgres://` and `postgresql://` are rewritten so SQLAlchemy uses the psycopg driver. Tables are created on startup if they don't exist (`create_all`). Nothing here migrates old tables; if I change a column during development I delete the file (or the Render database) and let it recreate. That is fine while the data is sample data.
+The database is opened in `database.py`. The URL comes from the environment variable `DATABASE_URL`. If it isn't set, the file is `backend/data/crafts.db` (SQLite). Docker Compose points it at a SQLite file on a volume. Render points it at Postgres; `postgres://` and `postgresql://` are rewritten so SQLAlchemy uses the psycopg driver. Tables are created on startup if they don't exist (`create_all`). Nothing here migrates old tables; if I change a column during development I delete the file (or the Render database) and let it recreate. That is fine while the data is sample data. Drafts did not need that: a draft is the existing `status` column set to `draft`.
 
 `seed.py` runs on startup only when the users table is empty. Restarting does not duplicate the sample crafts.
 
@@ -142,7 +146,7 @@ Or from `backend/`, with the dependencies installed:
 pytest -v
 ```
 
-`tests/conftest.py` points `DATABASE_URL` at a temporary file for each test and starts the app with FastAPI's TestClient, so the tests hit the real routes. They cover health, the counter, the docs page, login, the seeded feed, creating a post, the location rule, drafts being hidden from other users, edit/delete permissions, search, favorites, reports, and logout.
+`tests/conftest.py` points `DATABASE_URL` at a temporary file for each test and starts the app with FastAPI's TestClient, so the tests hit the real routes. They cover health, the counter, the docs page, login, the seeded feed, creating a post, the location rule, drafts (save an unfinished one, hide it from the feed and from search, edit it, reject a publish that is still incomplete, then publish it), edit/delete permissions, search, favorites, reports, and logout. `tests/test_drafts.py` is the draft file. It also calls `check_rules` directly, which is the same check the routes use.
 
 ## Demo account
 
